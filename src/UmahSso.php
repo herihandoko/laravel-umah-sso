@@ -85,6 +85,8 @@ class UmahSso
 
         $this->loginUser($request, $user);
 
+        $request->session()->forget(config('umah-sso.skip_session_key', 'umah_sso_skip'));
+
         return true;
     }
 

@@ -13,6 +13,9 @@ class UmahSsoController extends Controller
      */
     public function __invoke(Request $request, UmahSso $sso)
     {
+        // Explicit SSO click should override "skip after logout".
+        $request->session()->forget(config('umah-sso.skip_session_key', 'umah_sso_skip'));
+
         $result = $sso->attempt($request);
 
         if ($result === true) {
