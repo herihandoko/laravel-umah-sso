@@ -2,6 +2,7 @@
     "name": "herihandoko/laravel-umah-sso",
     "description": "Pintu Umah SSO client for Laravel apps (Provinsi Banten)",
     "type": "library",
+    "version": "1.0.0",
     "license": "MIT",
     "keywords": [
         "laravel",
