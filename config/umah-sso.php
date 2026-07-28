@@ -1,0 +1,88 @@
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Enable / disable SSO
+    |--------------------------------------------------------------------------
+    */
+    'enabled' => env('UMAH_SSO_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Umah auth endpoint
+    |--------------------------------------------------------------------------
+    | Returns JSON user profile when Banprov session cookies are valid.
+    */
+    'auth_url' => env('UMAH_AUTH_URL', 'https://layanan.bantenprov.go.id/v2/umah/auth'),
+
+    'timeout' => (int) env('UMAH_AUTH_TIMEOUT', 10),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Auto-try SSO when opening the login page
+    |--------------------------------------------------------------------------
+    | Use AttemptsUmahSso on your LoginController, or call UmahSso::attempt().
+    */
+    'auto_on_login' => env('UMAH_SSO_AUTO_ON_LOGIN', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | App display name (used in error messages)
+    |--------------------------------------------------------------------------
+    */
+    'app_name' => env('UMAH_SSO_APP_NAME', env('APP_NAME', 'aplikasi')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | User model & email column
+    |--------------------------------------------------------------------------
+    | Defaults to the auth provider model (config auth.providers.users.model).
+    */
+    'user_model' => null,
+
+    'email_column' => 'email',
+
+    /*
+    |--------------------------------------------------------------------------
+    | JSON keys from Umah auth payload to match against local email
+    |--------------------------------------------------------------------------
+    | Checked in order; first valid emails are collected then matched.
+    */
+    'email_keys' => ['BantenMail', 'OtherMail'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Remember login
+    |--------------------------------------------------------------------------
+    */
+    'remember' => env('UMAH_SSO_REMEMBER', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session keys to forget before login (e.g. cached profile)
+    |--------------------------------------------------------------------------
+    */
+    'forget_session_keys' => ['user'],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Redirects & routes
+    |--------------------------------------------------------------------------
+    */
+    'redirect_to' => env('UMAH_SSO_REDIRECT', '/home'),
+
+    'login_route' => 'login',
+
+    'error_key' => 'login_error',
+
+    'register_routes' => env('UMAH_SSO_REGISTER_ROUTES', true),
+
+    'route_path' => 'sso/umah',
+
+    'route_name' => 'sso.umah',
+
+    'route_middleware' => ['web', 'guest'],
+
+];
