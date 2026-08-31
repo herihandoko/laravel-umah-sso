@@ -31,6 +31,10 @@ trait AttemptsUmahSso
                 return redirect()->intended(config('umah-sso.redirect_to', '/home'));
             }
 
+            if (is_string($result) && $sso->shouldUseBrowserBridge($result, $request)) {
+                return redirect()->route(config('umah-sso.route_name', 'sso.umah'));
+            }
+
             if (is_string($result) && $sso->shouldSurfaceError($result)) {
                 return $this->umahSsoLoginView()->withErrors([
                     config('umah-sso.error_key', 'login_error') => $result,

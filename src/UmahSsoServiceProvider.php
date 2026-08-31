@@ -2,6 +2,7 @@
 
 namespace Herihandoko\UmahSso;
 
+use Herihandoko\UmahSso\Http\Controllers\UmahSsoCompleteController;
 use Herihandoko\UmahSso\Http\Controllers\UmahSsoController;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Support\Facades\Route;
@@ -20,6 +21,8 @@ class UmahSsoServiceProvider extends ServiceProvider
     {
         EncryptCookies::except(UmahSso::banprovCookieNames());
 
+        $this->loadViewsFrom(__DIR__ . '/../resources/views', 'umah-sso');
+
         if ($this->app->runningInConsole()) {
             $this->publishes([
                 __DIR__ . '/../config/umah-sso.php' => config_path('umah-sso.php'),
@@ -33,8 +36,14 @@ class UmahSsoServiceProvider extends ServiceProvider
 
     protected function registerRoutes(): void
     {
-        Route::middleware((array) config('umah-sso.route_middleware', ['web', 'guest']))
+        $middleware = (array) config('umah-sso.route_middleware', ['web', 'guest']);
+
+        Route::middleware($middleware)
             ->get(config('umah-sso.route_path', 'sso/umah'), UmahSsoController::class)
             ->name(config('umah-sso.route_name', 'sso.umah'));
+
+        Route::middleware($middleware)
+            ->post(config('umah-sso.complete_route_path', 'sso/umah/complete'), UmahSsoCompleteController::class)
+            ->name(config('umah-sso.complete_route_name', 'sso.umah.complete'));
     }
 }

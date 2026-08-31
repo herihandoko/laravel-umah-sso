@@ -29,6 +29,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Browser bridge SSO
+    |--------------------------------------------------------------------------
+    | When server-side cookie replay to Umah auth fails (session bound to
+    | browser), fetch auth JSON in the user's browser then POST it back here.
+    */
+    'browser_sso' => env('UMAH_SSO_BROWSER', true),
+
+    'auth_referer' => env('UMAH_AUTH_REFERER', 'https://layanan.bantenprov.go.id/pemerintahan/'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Session key set on local logout to prevent auto-SSO bounce-back
     |--------------------------------------------------------------------------
     */
@@ -89,6 +100,10 @@ return [
     'route_path' => 'sso/umah',
 
     'route_name' => 'sso.umah',
+
+    'complete_route_path' => 'sso/umah/complete',
+
+    'complete_route_name' => 'sso.umah.complete',
 
     'route_middleware' => ['web', 'guest'],
 

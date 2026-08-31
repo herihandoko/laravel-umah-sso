@@ -22,13 +22,23 @@ class UmahSsoController extends Controller
             return redirect()->intended(config('umah-sso.redirect_to', '/home'));
         }
 
-        $loginRoute = config('umah-sso.login_route', 'login');
-        $errorKey = config('umah-sso.error_key', 'login_error');
+        if (is_string($result) && $sso->shouldUseBrowserBridge($result, $request)) {
+            return response()->view('umah-sso::bridge', [
+                'authUrl' => config('umah-sso.auth_url'),
+                'completeUrl' => route(config('umah-sso.complete_route_name', 'sso.umah.complete')),
+                'loginUrl' => route(config('umah-sso.login_route', 'login')),
+            ]);
+        }
 
+        return $this->redirectWithError(is_string($result) ? $result : 'SSO Pintu Umah gagal. Silakan login manual.');
+    }
+
+    protected function redirectWithError(string $message)
+    {
         return redirect()
-            ->route($loginRoute)
+            ->route(config('umah-sso.login_route', 'login'))
             ->withErrors([
-                $errorKey => $result ?: 'SSO Pintu Umah gagal. Silakan login manual.',
+                config('umah-sso.error_key', 'login_error') => $message,
             ]);
     }
 }

@@ -55,10 +55,7 @@ class UmahSso
 
         try {
             $response = Http::timeout((int) config('umah-sso.timeout', 10))
-                ->withHeaders([
-                    'Accept' => 'application/json, text/plain, */*',
-                    'Cookie' => $cookieHeader,
-                ])
+                ->withHeaders($this->authRequestHeaders($request, $cookieHeader))
                 ->get($authUrl);
         } catch (\Throwable $e) {
             Log::warning('Umah SSO request failed', ['message' => $e->getMessage()]);
@@ -68,6 +65,26 @@ class UmahSso
 
         $payload = $this->parseAuthPayload($response->body());
         if (!$payload || empty($payload['Auth'])) {
+            Log::info('Umah SSO server-side auth rejected', [
+                'status' => $response->status(),
+                'body_prefix' => substr(trim($response->body()), 0, 120),
+            ]);
+
+            return 'Anda belum login di Pintu Umah.';
+        }
+
+        return $this->attemptFromPayload($request, $payload);
+    }
+
+    /**
+     * Complete SSO from Umah auth JSON (typically fetched in the browser).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return true|string
+     */
+    public function attemptFromPayload(Request $request, array $payload): bool|string
+    {
+        if (empty($payload['Auth'])) {
             return 'Anda belum login di Pintu Umah.';
         }
 
@@ -88,6 +105,51 @@ class UmahSso
         $request->session()->forget(config('umah-sso.skip_session_key', 'umah_sso_skip'));
 
         return true;
+    }
+
+    public function hasBanprovCookies(Request $request): bool
+    {
+        return $this->buildBanprovCookieHeader($request) !== '';
+    }
+
+    /**
+     * Server-side replay often fails when Umah binds session to the browser.
+     * Fall back to a browser fetch bridge when cookies are present locally.
+     */
+    public function shouldUseBrowserBridge(string $message, Request $request): bool
+    {
+        if (!config('umah-sso.browser_sso', true)) {
+            return false;
+        }
+
+        return $message === 'Anda belum login di Pintu Umah.' && $this->hasBanprovCookies($request);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function authRequestHeaders(Request $request, string $cookieHeader): array
+    {
+        $headers = [
+            'Accept' => 'application/json, text/plain, */*',
+            'Cookie' => $cookieHeader,
+        ];
+
+        if ($userAgent = $request->userAgent()) {
+            $headers['User-Agent'] = $userAgent;
+        }
+
+        if ($ip = $request->ip()) {
+            $headers['X-Forwarded-For'] = $ip;
+            $headers['X-Real-IP'] = $ip;
+        }
+
+        $headers['Referer'] = config(
+            'umah-sso.auth_referer',
+            'https://layanan.bantenprov.go.id/pemerintahan/'
+        );
+
+        return $headers;
     }
 
     /**
