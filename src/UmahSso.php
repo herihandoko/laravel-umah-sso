@@ -118,15 +118,48 @@ class UmahSso
 
     /**
      * Server-side replay often fails when Umah binds session to the browser.
-     * Fall back to a browser fetch bridge when cookies are present locally.
+     * Fall back to a browser fetch bridge; the browser may still have Banprov
+     * cookies even when they are not forwarded to this app (e.g. Pintu Umah redirect).
+     *
+     * @return array<int, string>
      */
+    public function browserBridgeMessages(): array
+    {
+        return [
+            'Anda belum login di Pintu Umah.',
+            'Sesi Pintu Umah tidak ditemukan. Login dulu di Pintu Umah.',
+        ];
+    }
+
     public function shouldUseBrowserBridge(string $message, Request $request): bool
     {
         if (!config('umah-sso.browser_sso', true)) {
             return false;
         }
 
-        return $message === 'Anda belum login di Pintu Umah.' && $this->hasBanprovCookies($request);
+        return in_array($message, $this->browserBridgeMessages(), true);
+    }
+
+    /**
+     * Detect return from Pintu Umah portal (Referer may be present on first landing).
+     */
+    public function isPintuUmahReturn(Request $request): bool
+    {
+        $referer = strtolower((string) $request->headers->get('referer', ''));
+
+        if ($referer === '') {
+            return false;
+        }
+
+        foreach ((array) config('umah-sso.pintu_umah_hosts', ['pintu-umah.bantenprov.go.id']) as $host) {
+            $host = strtolower(trim((string) $host));
+
+            if ($host !== '' && str_contains($referer, $host)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -36,6 +36,17 @@ return [
     */
     'browser_sso' => env('UMAH_SSO_BROWSER', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Pintu Umah portal hostnames
+    |--------------------------------------------------------------------------
+    | When users return from Pintu Umah to /login, redirect to /sso/umah so
+    | browser-bridge SSO runs (same as clicking "Login dengan Pintu Umah").
+    */
+    'pintu_umah_hosts' => [
+        'pintu-umah.bantenprov.go.id',
+    ],
+
     'auth_referer' => env('UMAH_AUTH_REFERER', 'https://layanan.bantenprov.go.id/pemerintahan/'),
 
     /*

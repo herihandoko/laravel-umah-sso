@@ -18,13 +18,20 @@ trait AttemptsUmahSso
      */
     public function showLoginForm(Request $request)
     {
+        /** @var UmahSso $sso */
+        $sso = app(UmahSso::class);
+
+        if (config('umah-sso.enabled') && $sso->isPintuUmahReturn($request)) {
+            $request->session()->forget($this->umahSsoSkipSessionKey());
+
+            return redirect()->route(config('umah-sso.route_name', 'sso.umah'));
+        }
+
         if (
             config('umah-sso.enabled')
             && config('umah-sso.auto_on_login')
             && !$request->session()->get($this->umahSsoSkipSessionKey())
         ) {
-            /** @var UmahSso $sso */
-            $sso = app(UmahSso::class);
             $result = $sso->attempt($request);
 
             if ($result === true) {
