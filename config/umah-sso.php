@@ -127,6 +127,10 @@ return [
 
     'complete_route_name' => 'sso.umah.complete',
 
+    'auth_check_route_path' => 'sso/umah/auth-check',
+
+    'auth_check_route_name' => 'sso.umah.auth-check',
+
     'route_middleware' => ['web', 'guest'],
 
 ];

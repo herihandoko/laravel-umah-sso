@@ -9,22 +9,39 @@ use Illuminate\View\View;
 trait AttemptsUmahSso
 {
     /**
-     * Auto-try Pintu Umah SSO before showing the login form.
+     * 1. Cek sesi Umah via server (layanan auth).
+     * 2. Auth=true → login / auto-provision user.
+     * 3. Auth=false atau tidak ada cookie → tampilkan form login.
      *
-     * Skipped after local logout while Pintu Umah cookies may still be present,
-     * so the user is not immediately signed back into the app.
-     *
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\View\View
+     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\Response|\Illuminate\View\View
      */
     public function showLoginForm(Request $request)
     {
         /** @var UmahSso $sso */
         $sso = app(UmahSso::class);
 
-        if (config('umah-sso.enabled') && $sso->shouldEnterSsoFlow($request)) {
-            $request->session()->forget($this->umahSsoSkipSessionKey());
+        if (config('umah-sso.enabled') && config('umah-sso.auto_on_login')) {
+            if ($sso->isReturningFromPintuUmah($request)) {
+                $request->session()->forget($this->umahSsoSkipSessionKey());
+            }
 
-            return redirect()->route(config('umah-sso.route_name', 'sso.umah'));
+            if (!$sso->shouldSkipAutoSso($request)) {
+                $result = $sso->attempt($request);
+
+                if ($result === true) {
+                    return redirect()->intended(config('umah-sso.redirect_to', '/home'));
+                }
+
+                if (is_string($result) && $sso->shouldUseBrowserBridge($result, $request)) {
+                    return response()->view('umah-sso::bridge', $sso->bridgeViewData());
+                }
+
+                if (is_string($result) && $sso->shouldSurfaceError($result)) {
+                    return $this->umahSsoLoginView()->withErrors([
+                        config('umah-sso.error_key', 'login_error') => $result,
+                    ]);
+                }
+            }
         }
 
         return $this->umahSsoLoginView();
@@ -41,15 +58,11 @@ trait AttemptsUmahSso
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        // One request only — do not block a later return from Pintu Umah portal.
         $request->session()->flash($this->umahSsoSkipSessionKey(), true);
 
         return redirect()->route(config('umah-sso.login_route', 'login'));
     }
 
-    /**
-     * Override in the host app if the login view path differs.
-     */
     protected function umahSsoLoginView(): View
     {
         return view('auth.login');

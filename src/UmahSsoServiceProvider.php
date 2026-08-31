@@ -2,6 +2,7 @@
 
 namespace Herihandoko\UmahSso;
 
+use Herihandoko\UmahSso\Http\Controllers\UmahSsoAuthCheckController;
 use Herihandoko\UmahSso\Http\Controllers\UmahSsoCompleteController;
 use Herihandoko\UmahSso\Http\Controllers\UmahSsoController;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -41,6 +42,10 @@ class UmahSsoServiceProvider extends ServiceProvider
         Route::middleware($middleware)
             ->get(config('umah-sso.route_path', 'sso/umah'), UmahSsoController::class)
             ->name(config('umah-sso.route_name', 'sso.umah'));
+
+        Route::middleware($middleware)
+            ->get(config('umah-sso.auth_check_route_path', 'sso/umah/auth-check'), UmahSsoAuthCheckController::class)
+            ->name(config('umah-sso.auth_check_route_name', 'sso.umah.auth-check'));
 
         Route::middleware($middleware)
             ->post(config('umah-sso.complete_route_path', 'sso/umah/complete'), UmahSsoCompleteController::class)

@@ -53,6 +53,35 @@ class UmahSso
             return 'Sesi Pintu Umah tidak ditemukan. Login dulu di Pintu Umah.';
         }
 
+        $payload = $this->resolveAuthPayload($request);
+        if (!$payload) {
+            Log::info('Umah SSO server-side auth rejected', [
+                'has_cookies' => true,
+            ]);
+
+            return 'Anda belum login di Pintu Umah.';
+        }
+
+        return $this->attemptFromPayload($request, $payload);
+    }
+
+    /**
+     * Call Umah auth with Banprov cookies from the current request.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function resolveAuthPayload(Request $request): ?array
+    {
+        $authUrl = config('umah-sso.auth_url');
+        if (!$authUrl) {
+            return null;
+        }
+
+        $cookieHeader = $this->buildBanprovCookieHeader($request);
+        if ($cookieHeader === '') {
+            return null;
+        }
+
         try {
             $response = Http::timeout((int) config('umah-sso.timeout', 10))
                 ->withHeaders($this->authRequestHeaders($request, $cookieHeader))
@@ -60,20 +89,20 @@ class UmahSso
         } catch (\Throwable $e) {
             Log::warning('Umah SSO request failed', ['message' => $e->getMessage()]);
 
-            return 'Tidak dapat menghubungi layanan auth Umah.';
+            return null;
         }
 
         $payload = $this->parseAuthPayload($response->body());
         if (!$payload || empty($payload['Auth'])) {
-            Log::info('Umah SSO server-side auth rejected', [
+            Log::info('Umah SSO auth payload rejected', [
                 'status' => $response->status(),
                 'body_prefix' => substr(trim($response->body()), 0, 120),
             ]);
 
-            return 'Anda belum login di Pintu Umah.';
+            return null;
         }
 
-        return $this->attemptFromPayload($request, $payload);
+        return $payload;
     }
 
     /**
@@ -137,7 +166,17 @@ class UmahSso
             return false;
         }
 
-        return in_array($message, $this->browserBridgeMessages(), true);
+        return in_array($message, $this->browserBridgeMessages(), true)
+            && $this->hasBanprovCookies($request);
+    }
+
+    /**
+     * User is returning from Pintu Umah portal (clear post-logout skip).
+     */
+    public function isReturningFromPintuUmah(Request $request): bool
+    {
+        return $this->isPintuUmahReturn($request)
+            || ($this->isCrossRegistrableNavigation($request) && $this->refererMatchesPintuUmahHost($request));
     }
 
     /**
@@ -201,34 +240,25 @@ class UmahSso
     }
 
     /**
-     * Whether this request should enter the /sso/umah flow (same as clicking the SSO button).
+     * Bridge view data for login / SSO button flows.
+     *
+     * @return array<string, mixed>
+     */
+    public function bridgeViewData(): array
+    {
+        return [
+            'authUrl' => config('umah-sso.auth_url'),
+            'authCheckUrl' => route(config('umah-sso.auth_check_route_name', 'sso.umah.auth-check')),
+            'completeUrl' => route(config('umah-sso.complete_route_name', 'sso.umah.complete')),
+            'loginUrl' => route(config('umah-sso.login_route', 'login')),
+        ];
+    }
+
+    /**
+     * @deprecated Use showLoginForm server attempt; kept for host apps that still call it.
      */
     public function shouldEnterSsoFlow(Request $request): bool
     {
-        if (!config('umah-sso.enabled', true)) {
-            return false;
-        }
-
-        // Returning from Pintu Umah / other Bantenprov apps — always retry SSO (even after AMS logout).
-        if (
-            $this->isPintuUmahReturn($request)
-            || $this->isExternalBantenprovEntry($request)
-            || ($this->isCrossRegistrableNavigation($request) && $this->refererMatchesPintuUmahHost($request))
-        ) {
-            return true;
-        }
-
-        if ($this->isCrossSiteNavigation($request)) {
-            return true;
-        }
-
-        if (
-            config('umah-sso.auto_on_login', true)
-            && !$this->shouldSkipAutoSso($request)
-        ) {
-            return true;
-        }
-
         return false;
     }
 

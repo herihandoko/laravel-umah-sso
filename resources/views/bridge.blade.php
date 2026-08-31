@@ -57,6 +57,7 @@
 
     <script>
         (function () {
+            var authCheckUrl = @json($authCheckUrl);
             var authUrl = @json($authUrl);
             var loginUrl = @json($loginUrl);
             var statusEl = document.getElementById('status');
@@ -70,25 +71,7 @@
                 errorEl.innerHTML = message + ' <a href="' + loginUrl + '">Kembali ke login</a>';
             }
 
-            fetch(authUrl, {
-                method: 'GET',
-                credentials: 'include',
-                headers: { 'Accept': 'application/json, text/plain, */*' }
-            })
-            .then(function (response) {
-                return response.text().then(function (text) {
-                    return { ok: response.ok, text: text };
-                });
-            })
-            .then(function (result) {
-                var payload;
-                try {
-                    payload = JSON.parse(result.text.trim());
-                } catch (e) {
-                    fail('Respon auth Umah tidak valid. Pastikan Anda sudah login di Pintu Umah.');
-                    return;
-                }
-
+            function completeLogin(payload) {
                 if (!payload || !payload.Auth) {
                     fail('Anda belum login di Pintu Umah. Silakan login di portal layanan terlebih dahulu.');
                     return;
@@ -97,10 +80,54 @@
                 statusEl.textContent = 'Sesi valid. Masuk ke aplikasi...';
                 document.getElementById('payload-input').value = JSON.stringify(payload);
                 document.getElementById('complete-form').submit();
-            })
-            .catch(function () {
-                fail('Tidak dapat menghubungi layanan auth Umah dari browser Anda.');
-            });
+            }
+
+            function parsePayload(text) {
+                try {
+                    return JSON.parse(String(text || '').trim());
+                } catch (e) {
+                    return null;
+                }
+            }
+
+            function fetchAuthDirect() {
+                return fetch(authUrl, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json, text/plain, */*' }
+                }).then(function (response) {
+                    return response.text().then(function (text) {
+                        return parsePayload(text);
+                    });
+                });
+            }
+
+            function fetchAuthViaApp() {
+                return fetch(authCheckUrl, {
+                    method: 'GET',
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' }
+                }).then(function (response) {
+                    return response.json();
+                });
+            }
+
+            fetchAuthViaApp()
+                .then(function (payload) {
+                    if (payload && payload.Auth) {
+                        completeLogin(payload);
+                        return;
+                    }
+
+                    return fetchAuthDirect().then(completeLogin);
+                })
+                .catch(function () {
+                    fetchAuthDirect()
+                        .then(completeLogin)
+                        .catch(function () {
+                            fail('Tidak dapat menghubungi layanan auth Umah. Pastikan Anda sudah login di Pintu Umah.');
+                        });
+                });
         })();
     </script>
 </body>
