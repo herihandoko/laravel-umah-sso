@@ -21,32 +21,10 @@ trait AttemptsUmahSso
         /** @var UmahSso $sso */
         $sso = app(UmahSso::class);
 
-        if (config('umah-sso.enabled') && $sso->isPintuUmahReturn($request)) {
+        if (config('umah-sso.enabled') && $sso->shouldEnterSsoFlow($request)) {
             $request->session()->forget($this->umahSsoSkipSessionKey());
 
             return redirect()->route(config('umah-sso.route_name', 'sso.umah'));
-        }
-
-        if (
-            config('umah-sso.enabled')
-            && config('umah-sso.auto_on_login')
-            && !$request->session()->get($this->umahSsoSkipSessionKey())
-        ) {
-            $result = $sso->attempt($request);
-
-            if ($result === true) {
-                return redirect()->intended(config('umah-sso.redirect_to', '/home'));
-            }
-
-            if (is_string($result) && $sso->shouldUseBrowserBridge($result, $request)) {
-                return redirect()->route(config('umah-sso.route_name', 'sso.umah'));
-            }
-
-            if (is_string($result) && $sso->shouldSurfaceError($result)) {
-                return $this->umahSsoLoginView()->withErrors([
-                    config('umah-sso.error_key', 'login_error') => $result,
-                ]);
-            }
         }
 
         return $this->umahSsoLoginView();

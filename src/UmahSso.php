@@ -141,22 +141,73 @@ class UmahSso
     }
 
     /**
-     * Detect return from Pintu Umah portal (Referer may be present on first landing).
+     * Detect return from another Bantenprov app (e.g. Pintu Umah portal).
+     * Referer is only reliable on the first request after cross-site redirect.
      */
-    public function isPintuUmahReturn(Request $request): bool
+    public function isExternalBantenprovEntry(Request $request): bool
     {
-        $referer = strtolower((string) $request->headers->get('referer', ''));
+        $referer = (string) $request->headers->get('referer', '');
 
         if ($referer === '') {
             return false;
         }
 
-        foreach ((array) config('umah-sso.pintu_umah_hosts', ['pintu-umah.bantenprov.go.id']) as $host) {
-            $host = strtolower(trim((string) $host));
+        $refererHost = strtolower((string) parse_url($referer, PHP_URL_HOST));
+        $appHost = strtolower($request->getHost());
 
-            if ($host !== '' && str_contains($referer, $host)) {
-                return true;
+        if ($refererHost === '' || $refererHost === $appHost) {
+            return false;
+        }
+
+        return str_ends_with($refererHost, 'bantenprov.go.id');
+    }
+
+    /**
+     * Detect return from Pintu Umah portal (Referer may be present on first landing).
+     */
+    public function isPintuUmahReturn(Request $request): bool
+    {
+        if ($this->isExternalBantenprovEntry($request)) {
+            $referer = strtolower((string) $request->headers->get('referer', ''));
+
+            foreach ((array) config('umah-sso.pintu_umah_hosts', ['pintu-umah.bantenprov.go.id']) as $host) {
+                $host = strtolower(trim((string) $host));
+
+                if ($host !== '' && str_contains($referer, $host)) {
+                    return true;
+                }
             }
+        }
+
+        return false;
+    }
+
+    /**
+     * Top-level navigation from another site (e.g. Pintu Umah) even when Referer is stripped.
+     */
+    public function isCrossSiteNavigation(Request $request): bool
+    {
+        return strtolower((string) $request->headers->get('Sec-Fetch-Site', '')) === 'cross-site';
+    }
+
+    /**
+     * Whether this request should enter the /sso/umah flow (same as clicking the SSO button).
+     */
+    public function shouldEnterSsoFlow(Request $request): bool
+    {
+        if (!config('umah-sso.enabled', true)) {
+            return false;
+        }
+
+        if ($this->isExternalBantenprovEntry($request) || $this->isCrossSiteNavigation($request)) {
+            return true;
+        }
+
+        if (
+            config('umah-sso.auto_on_login', true)
+            && !$request->session()->get(config('umah-sso.skip_session_key', 'umah_sso_skip'))
+        ) {
+            return true;
         }
 
         return false;
