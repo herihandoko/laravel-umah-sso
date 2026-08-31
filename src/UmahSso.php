@@ -94,6 +94,10 @@ class UmahSso
         }
 
         $user = $this->findUserByEmails($emails);
+        if (!$user && config('umah-sso.auto_provision', false)) {
+            $user = $this->provisionUser($payload, $emails);
+        }
+
         if (!$user) {
             $appName = config('umah-sso.app_name', 'aplikasi');
 
@@ -175,6 +179,50 @@ class UmahSso
 
         Auth::login($user, (bool) config('umah-sso.remember', true));
         $request->session()->regenerate();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<int, string>  $emails
+     */
+    protected function provisionUser(array $payload, array $emails): ?Authenticatable
+    {
+        $provisionerClass = config('umah-sso.provisioner');
+
+        if (!$provisionerClass || !class_exists($provisionerClass)) {
+            Log::warning('Umah SSO auto-provision enabled but no provisioner configured');
+
+            return null;
+        }
+
+        $provisioner = app($provisionerClass);
+
+        if (!$provisioner instanceof \Herihandoko\UmahSso\Contracts\UmahSsoUserProvisioner) {
+            Log::warning('Umah SSO provisioner must implement UmahSsoUserProvisioner', [
+                'class' => $provisionerClass,
+            ]);
+
+            return null;
+        }
+
+        try {
+            $user = $provisioner->provision($payload, $emails);
+        } catch (\Throwable $e) {
+            Log::error('Umah SSO auto-provision failed', [
+                'message' => $e->getMessage(),
+                'emails' => $emails,
+            ]);
+
+            return null;
+        }
+
+        if ($user) {
+            Log::info('Umah SSO auto-provisioned user', [
+                'user_id' => $user->getAuthIdentifier(),
+            ]);
+        }
+
+        return $user;
     }
 
     /**

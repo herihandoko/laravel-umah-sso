@@ -72,6 +72,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Auto-provision missing users from Umah auth payload
+    |--------------------------------------------------------------------------
+    */
+    'auto_provision' => env('UMAH_SSO_AUTO_PROVISION', false),
+
+    'provisioner' => env('UMAH_SSO_PROVISIONER'),
+
+    'default_role_id' => (int) env('UMAH_SSO_DEFAULT_ROLE_ID', 0),
+
+    /*
+    |--------------------------------------------------------------------------
     | Remember login
     |--------------------------------------------------------------------------
     */
