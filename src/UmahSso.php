@@ -191,6 +191,16 @@ class UmahSso
     }
 
     /**
+     * Navigation from another Bantenprov host (cross-site or same-site eTLD+1).
+     */
+    public function isCrossRegistrableNavigation(Request $request): bool
+    {
+        $site = strtolower((string) $request->headers->get('Sec-Fetch-Site', ''));
+
+        return in_array($site, ['cross-site', 'same-site'], true);
+    }
+
+    /**
      * Whether this request should enter the /sso/umah flow (same as clicking the SSO button).
      */
     public function shouldEnterSsoFlow(Request $request): bool
@@ -199,15 +209,48 @@ class UmahSso
             return false;
         }
 
-        if ($this->isExternalBantenprovEntry($request) || $this->isCrossSiteNavigation($request)) {
+        // Returning from Pintu Umah / other Bantenprov apps — always retry SSO (even after AMS logout).
+        if (
+            $this->isPintuUmahReturn($request)
+            || $this->isExternalBantenprovEntry($request)
+            || ($this->isCrossRegistrableNavigation($request) && $this->refererMatchesPintuUmahHost($request))
+        ) {
+            return true;
+        }
+
+        if ($this->isCrossSiteNavigation($request)) {
             return true;
         }
 
         if (
             config('umah-sso.auto_on_login', true)
-            && !$request->session()->get(config('umah-sso.skip_session_key', 'umah_sso_skip'))
+            && !$this->shouldSkipAutoSso($request)
         ) {
             return true;
+        }
+
+        return false;
+    }
+
+    public function shouldSkipAutoSso(Request $request): bool
+    {
+        return (bool) $request->session()->get(config('umah-sso.skip_session_key', 'umah_sso_skip'));
+    }
+
+    protected function refererMatchesPintuUmahHost(Request $request): bool
+    {
+        $referer = strtolower((string) $request->headers->get('referer', ''));
+
+        if ($referer === '') {
+            return false;
+        }
+
+        foreach ((array) config('umah-sso.pintu_umah_hosts', ['pintu-umah.bantenprov.go.id']) as $host) {
+            $host = strtolower(trim((string) $host));
+
+            if ($host !== '' && str_contains($referer, $host)) {
+                return true;
+            }
         }
 
         return false;

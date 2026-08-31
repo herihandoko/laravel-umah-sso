@@ -41,7 +41,8 @@ trait AttemptsUmahSso
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        $request->session()->put($this->umahSsoSkipSessionKey(), true);
+        // One request only — do not block a later return from Pintu Umah portal.
+        $request->session()->flash($this->umahSsoSkipSessionKey(), true);
 
         return redirect()->route(config('umah-sso.login_route', 'login'));
     }
